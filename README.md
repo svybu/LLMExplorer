@@ -12,7 +12,7 @@ This project is fueled by the FastAPI web-framework, boasting a straightforward 
 (Add relevant features here)
 
 ## Technology stack:
-
+ 
 - Python;
 - FastAPI web-framework;
 - Docker, Docker Hub;
