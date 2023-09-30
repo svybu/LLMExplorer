@@ -13,6 +13,15 @@ sqlalchemy = "^2.0.21"
 psycopg2 = "^2.9.8"
 python-dotenv = "^1.0.0"
 pydantic-settings = "^2.0.3"
+passlib = "^1.7.4"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+fastapi-mail = "^1.4.1"
+libgravatar = "^1.0.4"
+slugify = "^0.0.1"
+alembic = "^1.12.0"
+python-multipart = "^0.0.6"
+bcrypt = "^4.0.1"
+python-slugify = "^8.0.1"
 
 
 [build-system]
