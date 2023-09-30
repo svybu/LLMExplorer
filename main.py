@@ -2,9 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from api.database.db import get_db
+from api.routes import auth
 
 app = FastAPI()
-
+app.include_router(auth.router, prefix='/api')
 
 @app.get("/api/healthchecker")
 def healthchecker(db: Session = Depends(get_db)):

@@ -37,8 +37,12 @@ As a good example we recomment to run `postgres` in `docker` container.
 For that purpose the repository has its `docker-compose.yaml` file.
 Just run a command:  
 `docker-compose up -d`  
-6. Check that database is created and mentioned in `.env` file and run migrations:  
-`alembic upgrade head`
-7. Start the app by typing:
+...
+6. Generate a new migration file if you have made changes to your models:  
+   `alembic revision --autogenerate -m "Your message about the migration"`
+7. Apply migrations:  
+   `alembic upgrade head`
+
+8. Start the app by typing:
 `uvicorn main:app`
-8. Browse the app on `http://127.0.0.1:8000`
+9. Browse the app on `http://127.0.0.1:8000`
