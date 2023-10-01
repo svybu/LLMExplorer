@@ -2,16 +2,15 @@ from fastapi import APIRouter, HTTPException, Depends, status, Security, Backgro
 from fastapi.security import OAuth2PasswordRequestForm, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-
 from api.database.db import get_db
-from api.sсhemas import UserModel, UserResponse, TokenModel, RequestEmail
 from api.repository import users as repository_users
 from api.services.auth import auth_service
 from api.services.conf_email import send_email
-
+from api.schemas import UserModel, UserResponse, TokenModel, RequestEmail
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 security = HTTPBearer()
+
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def signup(body: UserModel, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
@@ -23,10 +22,9 @@ async def signup(body: UserModel, background_tasks: BackgroundTasks, request: Re
     background_tasks.add_task(send_email, new_user.email, new_user.username, request.base_url)
     return {"user": new_user, "detail": "User successfully created. Check your email for confirmation."}
 
+
 @router.post('/login', response_model=TokenModel)
 async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-
-
     user = await repository_users.get_user_by_email(body.username, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='incorrect data')
@@ -44,7 +42,6 @@ async def login(body: OAuth2PasswordRequestForm = Depends(), db: Session = Depen
 
 @router.get('/refresh_token', response_model=TokenModel)
 async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security), db: Session = Depends(get_db)):
-
     token = credentials.credentials
     email = await auth_service.decode_refresh_token(token)
     user = await repository_users.get_user_by_email(email, db)
@@ -59,7 +56,6 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(sec
 
 @router.get('/confirmed_email/{token}')
 async def confirmed_email(token: str, db: Session = Depends(get_db)):
-
     email = await auth_service.get_email_from_token(token)
     user = await repository_users.get_user_by_email(email, db)
     if user is None:
@@ -71,12 +67,11 @@ async def confirmed_email(token: str, db: Session = Depends(get_db)):
 
 
 @router.post('/request_email')
-async def request_email(body: RequestEmail, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
-
+async def request_email(body: RequestEmail, background_tasks: BackgroundTasks, request: Request,
+                        db: Session = Depends(get_db)):
     user = await repository_users.get_user_by_email(body.email, db)
     if user.confirmed:
         return {'message': 'Your email is already confirmed'}
     if user:
         background_tasks.add_task(send_email, user.email, user.username, request.base_url)
     return {'message': 'Check your email for confirmation.'}
-

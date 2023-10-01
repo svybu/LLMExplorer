@@ -1,14 +1,13 @@
 from pydantic_settings import BaseSettings
 
 
-
 class Settings(BaseSettings):
     DB_USER: str
-    DB_PASSW : str
-    DB_HOST : str
-    DB_PORT : str
-    DB_NAME : str
-    DB_SCHEMA : str
+    DB_PASSW: str
+    DB_HOST: str
+    DB_PORT: str
+    DB_NAME: str
+    DB_SCHEMA: str
 
     SQLALCHEMY_DATABASE_URL: str
 

@@ -5,16 +5,14 @@ from slugify import slugify
 from sqlalchemy.orm import Session
 
 from api.database.models import User
-from api.sсhemas import UserModel
+from api.schemas import UserModel, UserUpdate
 
 
 async def get_user_by_email(email: str, db: Session):
-
     return db.query(User).filter(User.email == email).first()
 
 
 async def create_user(body: UserModel, db: Session):
-
     try:
         g = Gravatar(body.email)
     except Exception as e:
@@ -27,14 +25,29 @@ async def create_user(body: UserModel, db: Session):
     return new_user
 
 
-async def update_token(user: User, token: str | None, db: Session):
+async def get_users(db: Session):
+    return  db.query(User).all()
 
+
+async def get_user_by_id(user_id: int, db: Session):
+    return db.query(User).filter_by(id=user_id).first()
+
+
+async def update(user_id: int, body: UserUpdate, db: Session):
+    user = await get_user_by_id(user_id, db)
+    if user:
+        for field, value in body.dict().items():
+            setattr(user, field, value)
+        db.commit()
+    return user
+
+
+async def update_token(user: User, token: str | None, db: Session):
     user.refresh_token = token
     db.commit()
 
 
 async def confirmed_email(email: str, db: Session) -> None:
-
     user = await get_user_by_email(email, db)
     user.confirmed = True
     db.commit()
