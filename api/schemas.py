@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from pydantic import BaseModel, Field, EmailStr
+
 
 class UserModel(BaseModel):
     username: str = Field(min_length=5, max_length=16)
@@ -14,7 +16,7 @@ class UserDb(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserResponse(BaseModel):
@@ -22,10 +24,18 @@ class UserResponse(BaseModel):
     detail: str = "User successfully created"
 
 
+class UserUpdate(BaseModel):
+    username: str
+    city: str
+    email: str
+    phone: str
+
+
 class TokenModel(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
 
 class RequestEmail(BaseModel):
     email: EmailStr
