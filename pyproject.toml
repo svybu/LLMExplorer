@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-fastapi = "^0.103.2"
+fastapi = {extras = ["all"], version = "^0.103.2"}
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
 sqlalchemy = "^2.0.21"
 psycopg2 = "^2.9.8"
@@ -22,6 +22,9 @@ alembic = "^1.12.0"
 python-multipart = "^0.0.6"
 bcrypt = "^4.0.1"
 python-slugify = "^8.0.1"
+pip = "^23.2.1"
+install = "^1.3.5"
+jinja2 = "^3.1.2"
 
 
 [build-system]
