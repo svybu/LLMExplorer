@@ -2,7 +2,6 @@ import subprocess
 import os
 
 
-
 def run():
 
     fastapi_server = subprocess.Popen(["uvicorn", "main:app"])
@@ -17,6 +16,7 @@ def run():
 
         fastapi_server.terminate()
         streamlit_server.terminate()
+
 
 if __name__ == "__main__":
     run()

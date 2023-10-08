@@ -26,6 +26,7 @@ app.include_router(healthcheck.route)
 app.include_router(auth.router)
 app.include_router(user.router)
 
+
 @app.get("/")
 def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "title": "FastAPI with Jinja2", "message": "Hello, World!"})
