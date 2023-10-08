@@ -14,6 +14,8 @@ from htmlTemplates import css, bot_template, user_template
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
+from sqlalchemy.orm import Session
+from api.database.models import ChatHistory
 
 
 size = 50000000
@@ -51,24 +53,26 @@ def get_conversation_chain(vectorstore):
     )
 
 
-def handle_user_input(user_question, conversation_chain, chat_history):
+def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
     chat_history.clear()
     with get_openai_callback() as cb:
         response = conversation_chain({"question": user_question})
         chat_history.extend(reversed(response["chat_history"]))
         st.write(cb)
-        for i, message in enumerate(chat_history):
-            template = user_template if i % 2 != 0 else bot_template
-            st.write(template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
-
-
+        for message in chat_history:
+            user_message = user_question if message == chat_history[0] else ""
+            bot_message = message.content
+            # Зберігання повідомлення в базі даних
+            db_message = ChatHistory(user_message=user_message, bot_message=bot_message)
+            db.add(db_message)
+        db.commit()
 
 
 def clear_chat_history(chat_history):
     chat_history.clear()
 
 
-def save_chat_history(chat_history, filename="chat_history.txt"):
+def save_chat_history(chat_history, db: Session):
     chat_history.clear()
     st.success("Chat history saved successfully")
 
@@ -112,10 +116,9 @@ def main():
                 st.session_state.conversation,
                 st.session_state.chat_history,
             )
-    st.markdown('[Перейти на FastAPI застосунок](http://127.0.0.1:8000)')
+    st.markdown("[Перейти на FastAPI застосунок](http://127.0.0.1:8000)")
 
     with st.sidebar:
-
         st.subheader("Your documents")
 
         pdf_docs = st.file_uploader("Upload your PDFs here", accept_multiple_files=True)
