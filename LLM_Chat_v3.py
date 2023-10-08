@@ -10,15 +10,14 @@ from langchain.chains import ConversationalRetrievalChain
 
 # from langchain.llms import HuggingFaceHub
 from translate import Translator
+
+from api.database.db import SessionLocal
 from htmlTemplates import css, bot_template, user_template
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
-
-
 from sqlalchemy.orm import Session
 from api.database.models import ChatHistory
-
 
 size = 50000000
 acc = 0  # Сюди треба передати параметри користувача. Якщо прєм. то =1, якщо базовий то =0.
@@ -55,26 +54,38 @@ def get_conversation_chain(vectorstore):
     )
 
 
+# Оновлена функція handle_user_input
 def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
     chat_history.clear()
     with get_openai_callback() as cb:
         response = conversation_chain({"question": user_question})
         chat_history.extend(reversed(response["chat_history"]))
         st.write(cb)
+
+        # Додати повідомлення до таблиці chat_history
         for message in chat_history:
-            user_message = user_question if message == chat_history[0] else ""
-            bot_message = message.content
-            # Зберігання повідомлення в базі даних
-            db_message = ChatHistory(user_message=user_message, bot_message=bot_message)
-            db.add(db_message)
+            if hasattr(message, 'role') and message.role == "system":
+                user_message = user_question
+                bot_message = message.content
+            else:
+                user_message = ""
+                bot_message = message.content
+
+            db_chat_history = ChatHistory(user_message=user_message, bot_message=bot_message)
+            db.add(db_chat_history)
         db.commit()
+
+        # Вивести кожне повідомлення на екран
+        for i, message in enumerate(chat_history):
+            template = user_template if i % 2 != 0 else bot_template
+            st.write(template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
 
 
 def clear_chat_history(chat_history):
     chat_history.clear()
 
 
-def save_chat_history(chat_history, db: Session):
+def save_chat_history(chat_history, filename="chat_history.txt"):
     chat_history.clear()
     st.success("Chat history saved successfully")
 
@@ -90,7 +101,7 @@ def check_file_size(pdf_docs):
         file_size = pdf.getbuffer().nbytes
         if not acc:
             if file_size >= size:
-                st.warning("Yoy have to upload file less than 50 MB")
+                st.warning("You have to upload a file less than 50 MB")
                 pdf_docs = None
     return pdf_docs
 
@@ -99,6 +110,8 @@ def main():
     load_dotenv()
     st.set_page_config(page_title="LLMExplorer", page_icon=":robot_face:")
     st.write(css, unsafe_allow_html=True)
+
+    db = SessionLocal()
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
@@ -117,10 +130,15 @@ def main():
                 user_question,
                 st.session_state.conversation,
                 st.session_state.chat_history,
+                db  # Передача об'єкта сесії бази даних
             )
-    st.markdown("[Перейти на FastAPI застосунок](http://127.0.0.1:8000)")
+    for message in st.session_state.chat_history:
+        st.text(message)
+
+    st.markdown('[Перейти на FastAPI застосунок](http://127.0.0.1:8000)')
 
     with st.sidebar:
+
         st.subheader("Your documents")
 
         pdf_docs = st.file_uploader("Upload your PDFs here", accept_multiple_files=True)
