@@ -14,3 +14,11 @@ class User(Base):
     created_at = Column('crated_at', DateTime, default=func.now())
     refresh_token = Column(String(255), nullable=True)
     confirmed = Column(Boolean, default=False)
+
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=func.now())
+    user_message = Column(String)
+    bot_message = Column(String)
