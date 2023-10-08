@@ -14,6 +14,8 @@ from htmlTemplates import css, bot_template, user_template
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
+
+
 from sqlalchemy.orm import Session
 from api.database.models import ChatHistory
 
