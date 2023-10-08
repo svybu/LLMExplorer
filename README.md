@@ -44,5 +44,5 @@ Just run a command:
    `alembic upgrade head`
 
 8. Start the app by typing:
-`uvicorn main:app`
+`python run.py`
 9. Browse the app on `http://127.0.0.1:8000`

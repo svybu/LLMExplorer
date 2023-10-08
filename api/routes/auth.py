@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Security, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
 
 from api.database.db import get_db
 from api.repository import users as repository_users
@@ -10,6 +12,16 @@ from api.schemas import UserModel, UserResponse, TokenModel, RequestEmail
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 security = HTTPBearer()
+
+
+templates = Jinja2Templates(directory="templates")
+@router.get("/signup/")
+async def login_page(request: Request):
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+@router.get("/login/")
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
