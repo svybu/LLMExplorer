@@ -84,7 +84,6 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
             message_content = message.content.replace("content=", "")
             st.write(template.replace("{{MSG}}", message_content), unsafe_allow_html=True)
 
-
 def clear_chat_history(chat_history):
     chat_history.clear()
 
