@@ -13,6 +13,7 @@ from api.repository import users as repository_users
 from api.services.auth import auth_service
 from api.services.conf_email import send_email
 from api.schemas import UserModel, UserResponse, TokenModel, RequestEmail, SignupForm
+from api.conf.config import settings
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 security = HTTPBearer()
@@ -20,6 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
+
 @router.get('/signup/')
 async def signup_page(request: Request):
 
@@ -77,7 +79,7 @@ async def login(db: Session = Depends(get_db), username: str = Form(...), passwo
     refresh_token = await auth_service.create_refresh_token(data={'sub': user.email})
     await repository_users.update_token(user, refresh_token, db)
 
-    response = RedirectResponse(url=f"http://localhost:8501?token={access_token}", status_code=303)  # Redirecting to the home page
+    response = RedirectResponse(url=f"{settings.STREAMLIT_URL}?token={access_token}", status_code=303)  # Redirecting to the home page
     response.set_cookie(key="access_token", value=access_token, httponly=True)
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True)
     return response

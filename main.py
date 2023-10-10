@@ -5,9 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from typing import List
 import logging
-from api.routes.auth import is_user_authenticated
 
+from api.routes.auth import is_user_authenticated
 from api.routes import auth, healthcheck, user
+from api.conf.config import settings
 
 app = FastAPI(title="LLMExplorer")
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def read_root(request: Request):
     user_authenticated = is_user_authenticated(request)
-    return templates.TemplateResponse("index.html", {"request": request#})
+    return templates.TemplateResponse("index.html", {"request": request, "settings": settings
         , "user_authenticated": user_authenticated})
 

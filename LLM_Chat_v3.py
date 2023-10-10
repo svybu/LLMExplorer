@@ -33,7 +33,7 @@ def get_token_from_url():
 
 
 def verify_token_and_get_user_id(token: str) -> Union[int, None]:
-    VERIFY_TOKEN_ENDPOINT = "http://127.0.0.1:8080/api/auth/get_user_id"
+    VERIFY_TOKEN_ENDPOINT = f"{settings.API_URL}/api/auth/get_user_id"
 
     try:
         response = requests.get(VERIFY_TOKEN_ENDPOINT, params={"token": token})
@@ -110,7 +110,7 @@ def get_conversation_chain(vectorstore):
 
 
 # Оновлена функція handle_user_input
-def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
+def handle_user_input(user_question, conversation_chain, chat_history, db: Session, user_id: int):
     chat_history.clear()
     with get_openai_callback() as cb:
         response = conversation_chain({"question": user_question})
@@ -118,16 +118,19 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
         st.write(cb)
 
         # Додати повідомлення до таблиці chat_history
-        for message in chat_history:
-            if hasattr(message, 'role') and message.role == "system":
-                user_message = user_question
-                bot_message = message.content
-            else:
-                user_message = ""
-                bot_message = message.content
+        user_message = ""
+        bot_message = ""
 
-            db_chat_history = ChatHistory(user_message=user_message, bot_message=bot_message)
-            db.add(db_chat_history)
+        for i, message in enumerate(chat_history):
+            if i % 2 == 0:  # Якщо індекс повідомлення парний, це повідомлення від бота
+                bot_message = message.content
+            else:  # Інакше, це запит користувача
+                user_message = message.content
+                db_chat_history = ChatHistory(user_id=user_id, user_message=user_message, bot_message=bot_message)
+                db.add(db_chat_history)
+                user_message = ""
+                bot_message = ""
+
         db.commit()
 
         # Вивести кожне повідомлення на екран
@@ -195,12 +198,14 @@ def main():
                 user_question,
                 st.session_state.conversation,
                 st.session_state.chat_history,
-                db  # Передача об'єкта сесії бази даних
+                db,  # Передача об'єкта сесії бази даних
+                user_id
             )
-    for message in st.session_state.chat_history:
-        st.text(message)
 
-    st.markdown('[Logout](http://127.0.0.1:8080/api/auth/logout/)')
+    #for message in st.session_state.chat_history:
+    #    st.text(message)
+
+    st.markdown(f'[Logout]({settings.API_URL}/api/auth/logout/)')
 
     with st.sidebar:
 
@@ -245,11 +250,13 @@ def main():
             if user and user.plus:
                 saved_docs = db.query(Document).filter(Document.user_id == user_id).all()
                 if saved_docs:
-                    selected_saved_doc = st.selectbox(
+                    selected_saved_doc_content = st.selectbox(
                         "Select a saved document to view:",
-                        [doc.id for doc in saved_docs]
+                        [(f"{doc.content[:50]}...") for doc in saved_docs]
                     )
-                    selected_saved_doc_content = next(doc.content for doc in saved_docs if doc.id == selected_saved_doc)
+                    selected_saved_doc = next(
+                        doc.id for doc in saved_docs if doc.content.startswith(selected_saved_doc_content[:50]))
+
                     st.text("Document content:")
                     st.text_area("Document Content:", value=selected_saved_doc_content, disabled=True)
 

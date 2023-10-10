@@ -26,6 +26,8 @@ class Settings(BaseSettings):
 
     MAX_DOCS_PLUS : int
     MAX_DOC_SIZE : int
+    API_URL : str
+    STREAMLIT_URL : str
 
     class Config:
         env_file = ".env"
