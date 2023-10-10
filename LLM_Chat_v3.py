@@ -139,7 +139,7 @@ def main():
     for message in st.session_state.chat_history:
         st.text(message)
 
-    st.markdown('[Перейти на FastAPI застосунок](http://127.0.0.1:8000)')
+    st.markdown('[Перейти на FastAPI застосунок](http://127.0.0.1:8080)')
 
     with st.sidebar:
 
