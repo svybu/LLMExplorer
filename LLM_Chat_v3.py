@@ -54,7 +54,6 @@ def get_conversation_chain(vectorstore):
     )
 
 
-# Оновлена функція handle_user_input
 def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
     chat_history.clear()
     with get_openai_callback() as cb:
@@ -71,6 +70,9 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
                 user_message = ""
                 bot_message = message.content
 
+            # Remove "content=" from bot_message
+            bot_message = bot_message.replace("content=", "")
+
             db_chat_history = ChatHistory(user_message=user_message, bot_message=bot_message)
             db.add(db_chat_history)
         db.commit()
@@ -78,7 +80,9 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
         # Вивести кожне повідомлення на екран
         for i, message in enumerate(chat_history):
             template = user_template if i % 2 != 0 else bot_template
-            st.write(template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+            # Remove "content=" from message.content
+            message_content = message.content.replace("content=", "")
+            st.write(template.replace("{{MSG}}", message_content), unsafe_allow_html=True)
 
 
 def clear_chat_history(chat_history):
