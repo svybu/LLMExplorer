@@ -6,6 +6,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from fastapi import FastAPI, Form, Body, BackgroundTasks
 import logging
+from typing import Optional, Union
+
 from api.database.db import get_db
 from api.repository import users as repository_users
 from api.services.auth import auth_service
@@ -31,6 +33,14 @@ async def login_page(request: Request):
 async def logout_page(request: Request):
     return templates.TemplateResponse("logout.html", {"request": request})
 
+@router.get('/email_conformation/')
+async def email_conformation_page(request: Request):
+    return templates.TemplateResponse("email_conformation_page.html", {"request": request})
+
+@router.get('/email_verified/')
+async def email_verified_page(request: Request):
+    return templates.TemplateResponse("email_verified.html", {"request": request})
+
 
 @router.post('/signup/', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def signup(background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db), username: str = Form(...), email: str = Form(...), password: str = Form(...)
@@ -48,7 +58,7 @@ async def signup(background_tasks: BackgroundTasks, request: Request, db: Sessio
 
     new_user = await repository_users.create_user(user_data, db)
     background_tasks.add_task(send_email, new_user.email, new_user.username, request.base_url)
-    return  RedirectResponse(url="/", status_code=303)
+    return  RedirectResponse(url="/api/auth/email_conformation/", status_code=303)
 
 
 @router.post('/login/')
@@ -67,7 +77,7 @@ async def login(db: Session = Depends(get_db), username: str = Form(...), passwo
     refresh_token = await auth_service.create_refresh_token(data={'sub': user.email})
     await repository_users.update_token(user, refresh_token, db)
 
-    response = RedirectResponse(url="/", status_code=303)  # Redirecting to the home page
+    response = RedirectResponse(url=f"http://localhost:8501?token={access_token}", status_code=303)  # Redirecting to the home page
     response.set_cookie(key="access_token", value=access_token, httponly=True)
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True)
     return response
@@ -125,7 +135,7 @@ async def confirmed_email(token: str, db: Session = Depends(get_db)):
     if user is None:
         logger.warning(f"No user found for email: {email}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Verification error')
-
+    return RedirectResponse(url="/api/auth/email_verified/")
 
 @router.post('/request_email/')
 async def request_email(body: RequestEmail, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
@@ -151,4 +161,14 @@ def is_user_authenticated(request: Request, db: Session = Depends(get_db)):
     except HTTPException:
         return False
 
+@router.get("/get_user_id/")
+async def get_user_id(token: Optional[str] = None, db: Session = Depends(get_db)):
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is missing")
 
+    try:
+        user = await auth_service.get_current_user(token, db)
+        if user:
+            return {"user_id": user.id}
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Invalid token or user not found")

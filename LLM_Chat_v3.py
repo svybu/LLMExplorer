@@ -2,6 +2,8 @@ import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
+import requests
+from typing import Union
 
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.vectorstores import FAISS
@@ -10,14 +12,45 @@ from langchain.chains import ConversationalRetrievalChain
 
 # from langchain.llms import HuggingFaceHub
 from translate import Translator
+
+from api.database.db import SessionLocal
 from htmlTemplates import css, bot_template, user_template
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks import get_openai_callback
-
+from sqlalchemy.orm import Session
+from api.database.models import ChatHistory, User, Document
+from api.conf.config import settings
 
 size = 50000000
 acc = 0  # Сюди треба передати параметри користувача. Якщо прєм. то =1, якщо базовий то =0.
+
+
+def get_token_from_url():
+    params = st.experimental_get_query_params()
+    token = params.get("token", [None])[0]
+    return token
+
+
+def verify_token_and_get_user_id(token: str) -> Union[int, None]:
+    VERIFY_TOKEN_ENDPOINT = "http://127.0.0.1:8080/api/auth/get_user_id"
+
+    try:
+        response = requests.get(VERIFY_TOKEN_ENDPOINT, params={"token": token})
+        if response.status_code == 200:
+            return response.json().get("user_id")
+    except Exception as e:
+        st.error(f"Error verifying token: {e}")
+
+    return None
+
+def set_user_as_plus(user_id: int, db: Session):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user:
+        user.plus = True
+        db.commit()
+        return True
+    return False
 
 
 def get_pdf_text(pdf_docs, selected_file_index):
@@ -28,6 +61,31 @@ def get_pdf_text(pdf_docs, selected_file_index):
     else:
         return ""
 
+def store_document(user_id: int, pdf_docs, selected_file_index: int, db: Session):
+    content = get_pdf_text(pdf_docs, selected_file_index)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        st.error("User not found.")
+        return
+
+    max_size = settings.MAX_DOC_SIZE
+    if len(content.encode('utf-8')) > max_size:
+        st.warning(f"Document size exceeds the limit of {max_size / 1000} KB.")
+        return
+
+    current_docs = db.query(Document).filter(Document.user_id == user_id).all()
+    if user.plus:
+        if len(current_docs) >= settings.MAX_DOCS_PLUS:
+            oldest_doc = min(current_docs, key=lambda x: x.uploaded_at)
+            db.delete(oldest_doc)
+    else:
+        for doc in current_docs:
+            db.delete(doc)
+
+    new_document = Document(content=content, user_id=user_id)
+    db.add(new_document)
+    db.commit()
 
 def get_text_chunks(text):
     text_splitter = CharacterTextSplitter(
@@ -51,17 +109,31 @@ def get_conversation_chain(vectorstore):
     )
 
 
-def handle_user_input(user_question, conversation_chain, chat_history):
+# Оновлена функція handle_user_input
+def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
     chat_history.clear()
     with get_openai_callback() as cb:
         response = conversation_chain({"question": user_question})
         chat_history.extend(reversed(response["chat_history"]))
         st.write(cb)
+
+        # Додати повідомлення до таблиці chat_history
+        for message in chat_history:
+            if hasattr(message, 'role') and message.role == "system":
+                user_message = user_question
+                bot_message = message.content
+            else:
+                user_message = ""
+                bot_message = message.content
+
+            db_chat_history = ChatHistory(user_message=user_message, bot_message=bot_message)
+            db.add(db_chat_history)
+        db.commit()
+
+        # Вивести кожне повідомлення на екран
         for i, message in enumerate(chat_history):
             template = user_template if i % 2 != 0 else bot_template
             st.write(template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
-
-
 
 
 def clear_chat_history(chat_history):
@@ -84,15 +156,27 @@ def check_file_size(pdf_docs):
         file_size = pdf.getbuffer().nbytes
         if not acc:
             if file_size >= size:
-                st.warning("Yoy have to upload file less than 50 MB")
+                st.warning("You have to upload a file less than 50 MB")
                 pdf_docs = None
     return pdf_docs
 
 
 def main():
-    load_dotenv()
     st.set_page_config(page_title="LLMExplorer", page_icon=":robot_face:")
     st.write(css, unsafe_allow_html=True)
+    token = get_token_from_url()
+    user_id = None
+    acc = 0
+
+    if token:
+        user_id = verify_token_and_get_user_id(token)
+        if user_id:
+            acc = 1  # Якщо користувач знайдений та токен дійсний, встановіть acc=1
+
+    load_dotenv()
+
+
+    db = SessionLocal()
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
@@ -111,8 +195,12 @@ def main():
                 user_question,
                 st.session_state.conversation,
                 st.session_state.chat_history,
+                db  # Передача об'єкта сесії бази даних
             )
-    st.markdown('[Перейти на FastAPI застосунок](http://127.0.0.1:8000)')
+    for message in st.session_state.chat_history:
+        st.text(message)
+
+    st.markdown('[Logout](http://127.0.0.1:8080/api/auth/logout/)')
 
     with st.sidebar:
 
@@ -129,6 +217,15 @@ def main():
         else:
             selected_file_index = -1
 
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and not user.plus:
+                if st.button("Make Me Plus"):
+                    if set_user_as_plus(user_id, db):
+                        st.success("You are now a Plus user!")
+                    else:
+                        st.error("Failed to update your status.")
+
         if st.button("Process"):
             if pdf_docs:
                 with st.spinner("Processing..."):
@@ -136,8 +233,32 @@ def main():
                     text_chunks = get_text_chunks(raw_text)
                     vectorstore = get_vectorstore(text_chunks)
                     st.session_state.conversation = get_conversation_chain(vectorstore)
+
+                    user = db.query(User).filter(User.id == user_id).first()
+                    if user and user.plus:
+                        store_document(user_id, pdf_docs, selected_file_index, db)
             else:
                 st.warning("Please upload PDF documents before processing.")
+
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.plus:
+                saved_docs = db.query(Document).filter(Document.user_id == user_id).all()
+                if saved_docs:
+                    selected_saved_doc = st.selectbox(
+                        "Select a saved document to view:",
+                        [doc.id for doc in saved_docs]
+                    )
+                    selected_saved_doc_content = next(doc.content for doc in saved_docs if doc.id == selected_saved_doc)
+                    st.text("Document content:")
+                    st.text_area("Document Content:", value=selected_saved_doc_content, disabled=True)
+
+                    # Додавання кнопки для обробки вибраного документа
+                    if st.button("Process Selected Saved Document"):
+                        raw_text = selected_saved_doc_content
+                        text_chunks = get_text_chunks(raw_text)
+                        vectorstore = get_vectorstore(text_chunks)
+                        st.session_state.conversation = get_conversation_chain(vectorstore)
 
         if st.button("Clear Chat History"):
             clear_chat_history(st.session_state.chat_history)
