@@ -58,3 +58,14 @@ async def update_avatar(email, url: str, db: Session) -> Type[User] | None:
     user.avatar = url
     db.commit()
     return user
+
+async def invalidate_refresh_token(user, db: Session):
+    """
+    Invalidate the refresh token for the given user.
+    """
+    user.refresh_token = None  # Set the refresh_token to None or just delete it
+    db.commit()
+    return True
+
+async def get_user_by_token(token: str, db: Session):
+    return db.query(User).filter(User.refresh_token == token).first()

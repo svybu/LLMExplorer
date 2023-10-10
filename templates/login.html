@@ -7,13 +7,16 @@
             <div class="login-wrapper position-wrapper">
                 <div class="login-block">
                     <h1 class="login-title">Login</h1>
-                    <form id="loginForm">
-                        <label class="login-label" for="username">Username:</label>
-                        <input class="form-control" type="text" id="username" name="username" placeholder="Enter your username:" required><br>
-                        <label class="login-label" for="password">Password:</label>
-                        <input class="form-control" type="password" id="password" name="password" placeholder="Enter your password:" required><br>
-                        <button class="btn btn-primary" id="submitBtn">Login</button>
-                    </form>
+                    <form action="/api/auth/login/" method="post" class="mt-4">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username:</label>
+            <input type="text" id="username" name="username" required class="form-control">
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль:</label>
+            <input type="password" id="password" name="password" required class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Увійти</button>
                 </div>
             <div class="login-footer">
             <p>If you are not registered, please register here</p>
@@ -21,30 +24,6 @@
         </div>
     </div>
 </div>
-<script>
-document.getElementById("submitBtn").addEventListener("click", function(event){
-    event.preventDefault();
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    fetch('/auth/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-            'username': username,
-            'password': password
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.access_token) {
-            // Зберегти токен або зробити щось інше з даними користувача
-        } else {
-            // Повідомлення про помилку або обробка відповіді сервера
-        }
-    });
-});
-</script>
+
 
 {% endblock %}
