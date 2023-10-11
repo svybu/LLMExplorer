@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     DB_SCHEMA: str
 
     SQLALCHEMY_DATABASE_URL: str
-
+    OPENAI_API_KEY : str
+    STREAMLIT_SERVER_HEADLESS : str
     secret_key: str
     algorithm: str
 
