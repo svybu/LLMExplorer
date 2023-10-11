@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     mail_starttls: bool
     mail_ssl_tls: bool
 
+    MAX_DOCS_PLUS : int
+    MAX_DOC_SIZE : int
+    MAX_IMAGES : int
+
+    API_URL : str
+    STREAMLIT_URL : str
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
