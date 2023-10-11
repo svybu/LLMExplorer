@@ -4,7 +4,8 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 import requests
 from typing import Union
-
+import openai
+from datetime import date
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
@@ -24,13 +25,17 @@ from api.conf.config import settings
 
 size = 50000000
 acc = 0  # Сюди треба передати параметри користувача. Якщо прєм. то =1, якщо базовий то =0.
-
+openai.api_key = settings.OPENAI_API_KEY
 
 def get_token_from_url():
     params = st.experimental_get_query_params()
     token = params.get("token", [None])[0]
     return token
 
+def generate_image_with_dalle(prompt):
+    image_resp = openai.Image.create(prompt=prompt, n=1, size="512x512")
+    image_url = image_resp.data[0]['url']
+    return image_url
 
 def verify_token_and_get_user_id(token: str) -> Union[int, None]:
     VERIFY_TOKEN_ENDPOINT = f"{settings.API_URL}/api/auth/get_user_id"
@@ -109,7 +114,7 @@ def get_conversation_chain(vectorstore):
     )
 
 
-# Оновлена функція handle_user_input
+
 def handle_user_input(user_question, conversation_chain, chat_history, db: Session, user_id: int):
     chat_history.clear()
     with get_openai_callback() as cb:
@@ -117,7 +122,7 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
         chat_history.extend(reversed(response["chat_history"]))
         st.write(cb)
 
-        # Додати повідомлення до таблиці chat_history
+
         user_message = ""
         bot_message = ""
 
@@ -148,8 +153,8 @@ def save_chat_history(chat_history, filename="chat_history.txt"):
     st.success("Chat history saved successfully")
 
 
-def translate_text(text, target_language):
-    translator = Translator(to_lang=target_language)
+def translate_text(text, source_language, target_language):
+    translator = Translator(from_lang=source_language, to_lang=target_language)
     translated_text = translator.translate(text)
     return translated_text
 
@@ -174,10 +179,9 @@ def main():
     if token:
         user_id = verify_token_and_get_user_id(token)
         if user_id:
-            acc = 1  # Якщо користувач знайдений та токен дійсний, встановіть acc=1
+            acc = 1
 
     load_dotenv()
-
 
     db = SessionLocal()
 
@@ -188,26 +192,49 @@ def main():
 
     st.header("LLMExplorer :robot_face:")
 
-    user_question = st.text_input("Ask a question about your documents:")
-
-    if user_question:
-        if st.session_state.conversation is None:
-            st.warning("Please process your PDF documents first.")
-        else:
-            handle_user_input(
-                user_question,
-                st.session_state.conversation,
-                st.session_state.chat_history,
-                db,  # Передача об'єкта сесії бази даних
-                user_id
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.plus:
+            mode = st.radio(
+                "Choose your mode",
+                ("Query Documents", "DALL·E Image Generation")
             )
 
-    #for message in st.session_state.chat_history:
-    #    st.text(message)
+            if mode == "DALL·E Image Generation":
+                if user.last_image_generated_date == date.today():
+                    if user.images_generated_today >= settings.MAX_IMAGES:
+                        st.warning(f"You have reached the limit of {settings.MAX_IMAGES} images for today.")
+                        return
+                else:
+                    user.images_generated_today = 0
+                    user.last_image_generated_date = date.today()
+                st.subheader("Generate images with DALL·E")
+                description = st.text_input("Enter your description for image generation:")
+                if st.button("Generate Image"):
+                    image_url = generate_image_with_dalle(description)
+                    st.image(image_url)
+                    user.images_generated_today += 1
+                    db.commit()
+            else:
+                user_question = st.text_input("Ask a question about your documents:")
 
-    st.markdown(f'[Logout]({settings.API_URL}/api/auth/logout/)')
+                if user_question:
+                    if st.session_state.conversation is None:
+                        st.warning("Please process your PDF documents first.")
+                    else:
+                        handle_user_input(
+                            user_question,
+                            st.session_state.conversation,
+                            st.session_state.chat_history,
+                            db,
+                            user_id
+                        )
+
 
     with st.sidebar:
+        logout_url = f'{settings.API_URL}/api/auth/logout/'
+        st.markdown(f'<a href="{logout_url}" target="_blank"><button style="margin-top: 20px">Logout</button></a>',
+                    unsafe_allow_html=True)
 
         st.subheader("Your documents")
 
@@ -277,13 +304,12 @@ def main():
 
         st.subheader("Translation")
         text_to_translate = st.text_area("Enter text to translate:")
-        target_language = st.selectbox(
-            "Select target language:", ["en", "fr", "es", "de", "ru", "uk"]
-        )
+        source_language = st.selectbox("Select source language:", ["en", "fr", "es", "de", "ru", "uk"])
+        target_language = st.selectbox("Select target language:", ["en", "fr", "es", "de", "ru", "uk"])
         if st.button("Translate"):
-            if text_to_translate:
-                translated_text = translate_text(text_to_translate, target_language)
-                st.write(f"Translated Text ({target_language}): {translated_text}")
+            if text_to_translate and source_language and target_language:
+                translated_text = translate_text(text_to_translate, source_language, target_language)
+                st.write(f"Translated Text ({source_language} to {target_language}): {translated_text}")
 
 
 if __name__ == "__main__":

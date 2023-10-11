@@ -4,7 +4,7 @@ from sqlalchemy.sql.sqltypes import DateTime
 
 Base = declarative_base()
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey, Text, Date
 from sqlalchemy.orm import relationship
 
 
@@ -16,10 +16,12 @@ class User(Base):
     password = Column(String(255), nullable=False)
     created_at = Column('crated_at', DateTime, default=func.now())
     refresh_token = Column(String(255), nullable=True)
+    images_generated_today = Column(Integer, default=0)
+    last_image_generated_date = Column(Date, default=None)
     confirmed = Column(Boolean, default=False)
     plus = Column(Boolean, default=False)  # Додано поле для преміум акаунту
 
-    # Відносини до інших таблиць
+
     chat_histories = relationship("ChatHistory", back_populates="user")
     documents = relationship("Document", back_populates="user")
 
