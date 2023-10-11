@@ -33,7 +33,7 @@ def get_token_from_url():
 
 
 def verify_token_and_get_user_id(token: str) -> Union[int, None]:
-    VERIFY_TOKEN_ENDPOINT = f"{settings.API_URL}/api/auth/get_user_id"
+    VERIFY_TOKEN_ENDPOINT = "http://127.0.0.1:8080/api/auth/get_user_id"
 
     try:
         response = requests.get(VERIFY_TOKEN_ENDPOINT, params={"token": token})
@@ -110,7 +110,7 @@ def get_conversation_chain(vectorstore):
 
 
 # Оновлена функція handle_user_input
-def handle_user_input(user_question, conversation_chain, chat_history, db: Session, user_id: int):
+def handle_user_input(user_question, conversation_chain, chat_history, db: Session):
     chat_history.clear()
     with get_openai_callback() as cb:
         response = conversation_chain({"question": user_question})
@@ -118,25 +118,33 @@ def handle_user_input(user_question, conversation_chain, chat_history, db: Sessi
         st.write(cb)
 
         # Додати повідомлення до таблиці chat_history
-        user_message = ""
-        bot_message = ""
-
-        for i, message in enumerate(chat_history):
-            if i % 2 == 0:  # Якщо індекс повідомлення парний, це повідомлення від бота
+        for message in chat_history:
+            if hasattr(message, 'role') and message.role == "system":
+                user_message = user_question
                 bot_message = message.content
-            else:  # Інакше, це запит користувача
-                user_message = message.content
-                db_chat_history = ChatHistory(user_id=user_id, user_message=user_message, bot_message=bot_message)
-                db.add(db_chat_history)
+            else:
                 user_message = ""
-                bot_message = ""
+                bot_message = message.content
 
+            db_chat_history = ChatHistory(user_message=user_message, bot_message=bot_message)
+            db.add(db_chat_history)
         db.commit()
 
         # Вивести кожне повідомлення на екран
         for i, message in enumerate(chat_history):
             template = user_template if i % 2 != 0 else bot_template
             st.write(template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+
+        if user_question.startswith("translate"):
+            # Get the target language from the user question.
+            target_language = user_question.split(" ")[2]
+
+            # Translate the text to the target language.
+            translated_text = translate_text(user_question[9:], target_language)
+
+            # Display the translated text to the user.
+            st.write(f"Translated Text ({target_language}): {translated_text}")
+            return
 
 
 def clear_chat_history(chat_history):
@@ -148,8 +156,8 @@ def save_chat_history(chat_history, filename="chat_history.txt"):
     st.success("Chat history saved successfully")
 
 
-def translate_text(text, target_language):
-    translator = Translator(to_lang=target_language)
+def translate_text(text, source_language, target_language):
+    translator = Translator(from_lang=source_language, to_lang=target_language)
     translated_text = translator.translate(text)
     return translated_text
 
@@ -198,14 +206,12 @@ def main():
                 user_question,
                 st.session_state.conversation,
                 st.session_state.chat_history,
-                db,  # Передача об'єкта сесії бази даних
-                user_id
+                db  # Передача об'єкта сесії бази даних
             )
+    for message in st.session_state.chat_history:
+        st.text(message)
 
-    #for message in st.session_state.chat_history:
-    #    st.text(message)
-
-    st.markdown(f'[Logout]({settings.API_URL}/api/auth/logout/)')
+    st.markdown('[Logout](http://127.0.0.1:8080/api/auth/logout/)')
 
     with st.sidebar:
 
@@ -250,13 +256,11 @@ def main():
             if user and user.plus:
                 saved_docs = db.query(Document).filter(Document.user_id == user_id).all()
                 if saved_docs:
-                    selected_saved_doc_content = st.selectbox(
+                    selected_saved_doc = st.selectbox(
                         "Select a saved document to view:",
-                        [(f"{doc.content[:50]}...") for doc in saved_docs]
+                        [doc.id for doc in saved_docs]
                     )
-                    selected_saved_doc = next(
-                        doc.id for doc in saved_docs if doc.content.startswith(selected_saved_doc_content[:50]))
-
+                    selected_saved_doc_content = next(doc.content for doc in saved_docs if doc.id == selected_saved_doc)
                     st.text("Document content:")
                     st.text_area("Document Content:", value=selected_saved_doc_content, disabled=True)
 
@@ -277,14 +281,14 @@ def main():
 
         st.subheader("Translation")
         text_to_translate = st.text_area("Enter text to translate:")
-        target_language = st.selectbox(
-            "Select target language:", ["en", "fr", "es", "de", "ru", "uk"]
-        )
+        source_language = st.selectbox("Select source language:", ["en", "fr", "es", "de", "ru", "uk"])
+        target_language = st.selectbox("Select target language:", ["en", "fr", "es", "de", "ru", "uk"])
         if st.button("Translate"):
-            if text_to_translate:
-                translated_text = translate_text(text_to_translate, target_language)
-                st.write(f"Translated Text ({target_language}): {translated_text}")
+            if text_to_translate and source_language and target_language:
+                translated_text = translate_text(text_to_translate, source_language, target_language)
+                st.write(f"Translated Text ({source_language} to {target_language}): {translated_text}")
 
 
 if __name__ == "__main__":
     main()
+    
