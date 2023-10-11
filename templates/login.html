@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="up-background"></div>
+        <div class="down-background"></div>
+            <div class="login-wrapper position-wrapper">
+                <div class="login-block">
+                    <h1 class="login-title">Login</h1>
+                    <form action="/api/auth/login/" method="post" class="mt-4">
+        <div class="mb-3">
+            <label for="username" class="form-label">Email:</label>
+            <input type="text" id="username" name="username" required class="form-control">
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password:</label>
+            <input type="password" id="password" name="password" required class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Увійти</button>
+                </div>
+            <div class="login-footer">
+            <p>If you are not registered, please register here</p>
+            <a class="custom-button" href="/api/auth/signup/">Sign up</a><br>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

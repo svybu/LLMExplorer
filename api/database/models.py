@@ -4,6 +4,9 @@ from sqlalchemy.sql.sqltypes import DateTime
 
 Base = declarative_base()
 
+from sqlalchemy import ForeignKey, Text, Date
+from sqlalchemy.orm import relationship
+
 
 class User(Base):
     __tablename__ = "users"
@@ -13,4 +16,36 @@ class User(Base):
     password = Column(String(255), nullable=False)
     created_at = Column('crated_at', DateTime, default=func.now())
     refresh_token = Column(String(255), nullable=True)
+    images_generated_today = Column(Integer, default=0)
+    last_image_generated_date = Column(Date, default=None)
     confirmed = Column(Boolean, default=False)
+    plus = Column(Boolean, default=False)  # Додано поле для преміум акаунту
+
+
+    chat_histories = relationship("ChatHistory", back_populates="user")
+    documents = relationship("Document", back_populates="user")
+
+
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=func.now())
+    user_message = Column(String)
+    bot_message = Column(String)
+    user_id = Column(Integer, ForeignKey('users.id'))  # Foreign key to User table
+
+    # Відносини до інших таблиць
+    user = relationship("User", back_populates="chat_histories")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(Text, nullable=False)  # Текст документу
+    uploaded_at = Column(DateTime, default=func.now())
+    user_id = Column(Integer, ForeignKey('users.id'))  # Foreign key to User table
+
+    # Відносини до інших таблиць
+    user = relationship("User", back_populates="documents")

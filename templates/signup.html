@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+
+<div class="container">
+    <!-- Форма для логіну -->
+    <form action="/api/auth/signup" method="post" class="mt-4">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username:</label>
+            <input type="text" id="username" name="username" required class="form-control">
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Email:</label>
+            <input type="email" id="email" name="email" required class="form-control">
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль:</label>
+            <input type="password" id="password" name="password" required class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">SignUp</button>
+    </form>
+</div>
+
+{% endblock %}

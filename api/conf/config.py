@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     DB_SCHEMA: str
 
     SQLALCHEMY_DATABASE_URL: str
-
+    OPENAI_API_KEY : str
+    STREAMLIT_SERVER_HEADLESS : str
     secret_key: str
     algorithm: str
 
@@ -22,6 +23,13 @@ class Settings(BaseSettings):
     mail_server: str
     mail_starttls: bool
     mail_ssl_tls: bool
+
+    MAX_DOCS_PLUS : int
+    MAX_DOC_SIZE : int
+    MAX_IMAGES : int
+
+    API_URL : str
+    STREAMLIT_URL : str
 
     class Config:
         env_file = ".env"

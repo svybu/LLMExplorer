@@ -90,14 +90,15 @@ class Auth:
         return token
 
     async def get_email_from_token(self, token: str):
-
         try:
             payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
-            email = payload['sub']
+            email = payload["sub"]
             return email
         except JWTError as e:
             print(e)
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Invalid token for email verification')
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail="Invalid token for email verification")
+
 
 
 auth_service = Auth()
